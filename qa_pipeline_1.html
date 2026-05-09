@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QA 测试流水线 — Liene/极印</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#ffffff;--bg2:#f5f5f3;--bg3:#ebebea;
+  --text:#1a1a18;--text2:#6b6b66;--text3:#9c9a92;
+  --border:rgba(0,0,0,0.12);--border2:rgba(0,0,0,0.22);
+  --blue-bg:#E6F1FB;--blue-t:#0C447C;--blue-bd:#185FA5;
+  --green-bg:#EAF3DE;--green-t:#27500A;--green-bd:#3B6D11;
+  --amber-bg:#FAEEDA;--amber-t:#633806;--amber-bd:#854F0B;
+  --purple-bg:#EEEDFE;--purple-t:#3C3489;--purple-bd:#534AB7;
+  --teal-bg:#E1F5EE;--teal-t:#085041;--teal-bd:#0F6E56;
+  --coral-bg:#FAECE7;--coral-t:#712B13;--coral-bd:#993C1D;
+  --radius:8px;--radius-lg:12px;
+}
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#1a1a18;--bg2:#242422;--bg3:#2e2e2b;
+    --text:#e8e6de;--text2:#9c9a92;--text3:#6b6b66;
+    --border:rgba(255,255,255,0.12);--border2:rgba(255,255,255,0.22);
+    --blue-bg:#042C53;--blue-t:#B5D4F4;--blue-bd:#378ADD;
+    --green-bg:#173404;--green-t:#C0DD97;--green-bd:#639922;
+    --amber-bg:#412402;--amber-t:#FAC775;--amber-bd:#BA7517;
+    --purple-bg:#26215C;--purple-t:#CECBF6;--purple-bd:#7F77DD;
+    --teal-bg:#04342C;--teal-t:#9FE1CB;--teal-bd:#1D9E75;
+    --coral-bg:#4A1B0C;--coral-t:#F5C4B3;--coral-bd:#D85A30;
+  }
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg3);color:var(--text);font-size:14px;line-height:1.6;min-height:100vh}
+.app{max-width:900px;margin:0 auto;padding:20px 16px 60px}
+
+.apibar{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:14px 16px;margin-bottom:20px}
+.apibar-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.apibar label{font-size:12px;color:var(--text2);white-space:nowrap;flex-shrink:0}
+.model-select{font-size:12px;padding:6px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer}
+.model-select:focus{outline:none;border-color:#378ADD}
+.apibar input{flex:1;min-width:160px;font-size:12px;padding:6px 10px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);font-family:monospace}
+.apibar input:focus{outline:none;border-color:#378ADD}
+.api-save{font-size:12px;padding:6px 14px;border-radius:var(--radius);border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);cursor:pointer;white-space:nowrap}
+.api-save:hover{background:var(--bg3)}
+.model-info{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.mtag{font-size:11px;padding:3px 10px;border-radius:99px;border:0.5px solid var(--border);color:var(--text3)}
+.mtag.hi{border-color:var(--blue-bd);background:var(--blue-bg);color:var(--blue-t);font-weight:500}
+.api-hint{font-size:11px;color:var(--text3);margin-left:auto}
+.api-hint a{color:#378ADD;text-decoration:none}
+
+.title-row{display:flex;align-items:baseline;gap:10px;margin-bottom:16px}
+h1{font-size:18px;font-weight:500}
+.ver{font-size:11px;color:var(--text3)}
+
+.pipeline{display:flex;align-items:flex-start;gap:0;margin-bottom:16px;overflow-x:auto;padding-bottom:4px}
+.node-col{display:flex;flex-direction:column;align-items:center;flex-shrink:0}
+.node-box{width:96px;border-radius:var(--radius);border:0.5px solid var(--border2);padding:9px 7px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg2)}
+.node-box:hover{opacity:.85}
+.node-num{font-size:10px;font-weight:500;margin-bottom:2px;color:var(--text2)}
+.node-label{font-size:12px;font-weight:500;color:var(--text)}
+.node-sub{font-size:10px;color:var(--text3);margin-top:2px}
+.arrow-col{display:flex;align-items:center;padding-top:30px;flex-shrink:0}
+.arrow{width:14px;height:1px;background:var(--border2);position:relative}
+.arrow::after{content:'';position:absolute;right:-4px;top:-3px;border:3.5px solid transparent;border-left-color:var(--border2)}
+
+.status{font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px;min-height:22px;margin-bottom:10px}
+.spinner{width:11px;height:11px;border:1.5px solid var(--border2);border-top-color:var(--text);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.panel-area{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.panel{background:var(--bg);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:14px;display:flex;flex-direction:column;gap:8px}
+.panel.full{grid-column:1/-1}
+.panel-head{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:500;color:var(--text2)}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+textarea{width:100%;resize:vertical;font-size:12px;line-height:1.6;background:var(--bg2);border:0.5px solid var(--border);border-radius:var(--radius);padding:8px 10px;color:var(--text);font-family:inherit;min-height:130px}
+textarea:focus{outline:none;border-color:#378ADD}
+
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font-size:12px;padding:7px 14px;border-radius:var(--radius);cursor:pointer;border:0.5px solid var(--border2);background:var(--bg2);color:var(--text);transition:all .12s}
+button:hover{background:var(--bg3)}
+button:active{transform:scale(.98)}
+button:disabled{opacity:.4;cursor:not-allowed}
+.btn-p{background:var(--text);color:var(--bg);border:none}
+.btn-p:hover{opacity:.85;background:var(--text)}
+
+.upload-area{border:0.5px dashed var(--border2);border-radius:var(--radius);padding:18px;text-align:center;font-size:12px;color:var(--text2);cursor:pointer;background:var(--bg2)}
+.upload-area:hover{border-color:#378ADD}
+
+.chips{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
+.chip{font-size:11px;padding:3px 10px;border-radius:99px;border:0.5px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer}
+.chip:hover{color:var(--text)}
+
+.score-row{display:flex;gap:5px;flex-wrap:wrap}
+.sc{font-size:11px;padding:2px 8px;border-radius:99px;border:0.5px solid var(--border)}
+.sc.pass{background:var(--green-bg);color:var(--green-t)}
+.sc.warn{background:var(--amber-bg);color:var(--amber-t)}
+.sc.fail{background:#FCEBEB;color:#A32D2D}
+
+.human-badge{font-size:10px;padding:2px 7px;border-radius:99px;background:var(--amber-bg);color:var(--amber-t);border:0.5px solid var(--amber-bd)}
+
+.sdiv{font-size:11px;color:var(--text3);margin:4px 0 10px;display:flex;align-items:center;gap:8px}
+.sdiv::before,.sdiv::after{content:'';flex:1;height:0.5px;background:var(--border)}
+
+.mind-wrap{background:var(--bg2);border-radius:var(--radius);padding:8px;overflow:auto;max-height:240px}
+
+.view{display:none}
+.view.active{display:block}
+.footer{margin-top:40px;font-size:11px;color:var(--text3);text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="apibar">
+    <div class="apibar-row">
+      <label>模型</label>
+      <select class="model-select" id="model-select" onchange="onModelChange()">
+        <optgroup label="Anthropic">
+          <option value="claude|claude-sonnet-4-20250514|https://api.anthropic.com/v1/messages">Claude Sonnet 4</option>
+        </optgroup>
+        <optgroup label="DeepSeek">
+          <option value="deepseek|deepseek-v4-pro|https://api.deepseek.com/v1/chat/completions">DeepSeek V4 Pro</option>
+          <option value="deepseek|deepseek-v4-flash|https://api.deepseek.com/v1/chat/completions">DeepSeek V4 Flash（快/省钱）</option>
+          <option value="deepseek|deepseek-v3-0324|https://api.deepseek.com/v1/chat/completions">DeepSeek V3（稳定）</option>
+        </optgroup>
+      </select>
+      <label>API Key</label>
+      <input type="password" id="api-key" placeholder="粘贴对应模型的 API Key..." autocomplete="off">
+      <button class="api-save" onclick="saveKey()">保存到本地</button>
+    </div>
+    <div class="model-info" id="model-info"></div>
+  </div>
+
+  <div class="title-row">
+    <h1>QA 测试流水线</h1>
+    <span class="ver">Liene / 极印 Photo APP · 六节点全流程</span>
+  </div>
+
+  <div class="pipeline">
+    <div class="node-col"><div class="node-box" id="nb-1" onclick="jumpNode(1)"><div class="node-num">节点 1</div><div class="node-label">PRD评审</div><div class="node-sub">上传+评审</div></div></div>
+    <div class="arrow-col"><div class="arrow"></div></div>
+    <div class="node-col"><div class="node-box" id="nb-2" onclick="jumpNode(2)"><div class="node-num">节点 2</div><div class="node-label">思维导图</div><div class="node-sub">生成+评审</div></div></div>
+    <div class="arrow-col"><div class="arrow"></div></div>
+    <div class="node-col"><div class="node-box" id="nb-3" onclick="jumpNode(3)"><div class="node-num">节点 3</div><div class="node-label">导图修正</div><div class="node-sub">自动修正</div></div></div>
+    <div class="arrow-col"><div class="arrow"></div></div>
+    <div class="node-col"><div class="node-box" id="nb-4" onclick="jumpNode(4)"><div class="node-num">节点 4</div><div class="node-label">生成用例</div><div class="node-sub">结构化输出</div></div></div>
+    <div class="arrow-col"><div class="arrow"></div></div>
+    <div class="node-col"><div class="node-box" id="nb-5" onclick="jumpNode(5)"><div class="node-num">节点 5</div><div class="node-label">用例评审</div><div class="node-sub">质量检查</div></div></div>
+    <div class="arrow-col"><div class="arrow"></div></div>
+    <div class="node-col"><div class="node-box" id="nb-6" onclick="jumpNode(6)"><div class="node-num">节点 6</div><div class="node-label">用例修正</div><div class="node-sub">最终输出</div></div></div>
+  </div>
+
+  <div class="status" id="status"></div>
+
+  <!-- 节点1 -->
+  <div class="view active" id="view-1">
+    <div class="sdiv">节点1 — PRD 上传与评审</div>
+    <div class="chips">
+      <span class="chip" onclick="useSamplePrd()">载入示例PRD</span>
+      <span class="chip" onclick="clearAll()">重置全部</span>
+    </div>
+    <div class="panel-area">
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#378ADD"></div>PRD 内容</div>
+        <div class="upload-area" id="upload-area" onclick="document.getElementById('file-input').click()">
+          点击上传 .txt / .md 文件<br>
+          <span style="font-size:11px;margin-top:4px;display:block;color:var(--text3)">或在下方直接粘贴文字</span>
+        </div>
+        <input type="file" id="file-input" accept=".txt,.md" style="display:none" onchange="handleFile(this)">
+        <textarea id="prd-text" placeholder="在此粘贴 PRD 内容..." style="min-height:120px"></textarea>
+        <div class="btn-row"><button class="btn-p" onclick="runNode1()">评审PRD ↗</button></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#639922"></div>评审结果</div>
+        <textarea id="prd-review" placeholder="AI 将分析完整性、歧义点、缺失场景、测试风险..." readonly style="min-height:180px"></textarea>
+        <div class="score-row" id="prd-scores"></div>
+      </div>
+    </div>
+    <div class="panel-area">
+      <div class="panel full">
+        <div class="panel-head"><div class="dot" style="background:#EF9F27"></div>人工补齐 PRD <span class="human-badge">人工节点</span></div>
+        <textarea id="prd-supplement" placeholder="根据评审意见补充：新增场景、澄清歧义、补充边界条件...&#10;无需补充则直接点击下方按钮" style="min-height:70px"></textarea>
+        <div class="btn-row"><button class="btn-p" id="btn-to-node2" disabled onclick="goToNode2()">确认补齐，生成思维导图 ↗</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点2 -->
+  <div class="view" id="view-2">
+    <div class="sdiv">节点2 — 思维导图生成与评审</div>
+    <div class="panel-area">
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#1D9E75"></div>思维导图</div>
+        <div class="mind-wrap" id="mind-svg-wrap"><div style="font-size:12px;color:var(--text3);padding:20px;text-align:center">生成中...</div></div>
+        <div class="btn-row" style="margin-top:4px"><button onclick="runMindGen()">重新生成</button></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#639922"></div>导图评审</div>
+        <textarea id="mind-review" placeholder="AI 将评审覆盖度、结构合理性、遗漏测试点..." readonly style="min-height:180px"></textarea>
+        <div class="score-row" id="mind-scores"></div>
+      </div>
+    </div>
+    <div class="panel-area">
+      <div class="panel full">
+        <div class="panel-head"><div class="dot" style="background:#7F77DD"></div>导图原始数据（JSON）</div>
+        <textarea id="mind-raw" readonly style="min-height:60px;font-family:monospace;font-size:11px"></textarea>
+        <div class="btn-row"><button class="btn-p" id="btn-to-node3" disabled onclick="jumpNode(3)">进入节点3：自动修正导图 ↗</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点3 -->
+  <div class="view" id="view-3">
+    <div class="sdiv">节点3 — 思维导图自动修正</div>
+    <div class="panel-area">
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#378ADD"></div>修正前</div>
+        <div class="mind-wrap" id="mind-before-wrap"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#1D9E75"></div>修正后</div>
+        <div class="mind-wrap" id="mind-after-wrap"><div style="font-size:12px;color:var(--text3);padding:20px;text-align:center">点击执行后渲染</div></div>
+      </div>
+    </div>
+    <div class="panel-area">
+      <div class="panel full">
+        <div class="panel-head"><div class="dot" style="background:#7F77DD"></div>修正说明</div>
+        <textarea id="mind-fix-notes" readonly style="min-height:80px"></textarea>
+        <div class="btn-row">
+          <button class="btn-p" onclick="runNode3()">执行自动修正 ↗</button>
+          <button id="btn-to-node4" disabled onclick="jumpNode(4)">进入节点4：生成测试用例 ↗</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点4 -->
+  <div class="view" id="view-4">
+    <div class="sdiv">节点4 — 生成结构化测试用例</div>
+    <div class="panel-area">
+      <div class="panel full">
+        <div class="panel-head"><div class="dot" style="background:#378ADD"></div>测试用例</div>
+        <textarea id="cases-output" placeholder="将根据修正后的思维导图自动生成结构化测试用例..." readonly style="min-height:280px"></textarea>
+        <div class="btn-row">
+          <button class="btn-p" onclick="runNode4()">生成测试用例 ↗</button>
+          <button id="btn-to-node5" disabled onclick="jumpNode(5)">进入节点5：评审用例 ↗</button>
+          <button onclick="copyText('cases-output')">复制</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 节点5 -->
+  <div class="view" id="view-5">
+    <div class="sdiv">节点5 — 测试用例评审</div>
+    <div class="panel-area">
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#639922"></div>评审意见</div>
+        <textarea id="cases-review" placeholder="AI 将从覆盖完整性、步骤清晰度、边界场景、可执行性等维度评审..." readonly style="min-height:200px"></textarea>
+        <div class="score-row" id="cases-scores"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#D4537E"></div>问题清单</div>
+        <textarea id="cases-issues" placeholder="具体问题与修改建议..." readonly style="min-height:200px"></textarea>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-p" onclick="runNode5()">执行评审 ↗</button>
+      <button id="btn-to-node6" disabled onclick="jumpNode(6)">进入节点6：自动修正 ↗</button>
+    </div>
+  </div>
+
+  <!-- 节点6 -->
+  <div class="view" id="view-6">
+    <div class="sdiv">节点6 — 测试用例自动修正（最终输出）</div>
+    <div class="panel-area">
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#888"></div>修正前</div>
+        <textarea id="cases-before" readonly style="min-height:220px"></textarea>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="dot" style="background:#1D9E75"></div>修正后（最终版）</div>
+        <textarea id="cases-after" placeholder="修正后的完整测试用例..." readonly style="min-height:220px"></textarea>
+      </div>
+    </div>
+    <div class="panel-area">
+      <div class="panel full">
+        <div class="panel-head"><div class="dot" style="background:#7F77DD"></div>修正说明</div>
+        <textarea id="cases-fix-notes" readonly style="min-height:70px"></textarea>
+        <div class="btn-row">
+          <button class="btn-p" onclick="runNode6()">执行修正 ↗</button>
+          <button onclick="copyText('cases-after')">复制最终用例</button>
+          <button onclick="exportTxt()">导出 .txt</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">QA Pipeline · 个人版 · Key 存本地，数据不离机</div>
+</div>
+
+<script>
+const ST={prdText:'',prdReview:'',prdSupplement:'',mindData:null,mindReview:'',mindFixed:null,cases:'',casesReview:'',casesFinal:''};
+let busy=false;
+
+const nodeColors=[
+  {bg:'var(--blue-bg)',bd:'var(--blue-bd)',nt:'var(--blue-t)'},
+  {bg:'var(--teal-bg)',bd:'var(--teal-bd)',nt:'var(--teal-t)'},
+  {bg:'var(--purple-bg)',bd:'var(--purple-bd)',nt:'var(--purple-t)'},
+  {bg:'var(--amber-bg)',bd:'var(--amber-bd)',nt:'var(--amber-t)'},
+  {bg:'var(--green-bg)',bd:'var(--green-bd)',nt:'var(--green-t)'},
+  {bg:'var(--coral-bg)',bd:'var(--coral-bd)',nt:'var(--coral-t)'}
+];
+
+const MODELS = {
+  'claude-sonnet-4-20250514': {
+    provider:'claude', label:'Claude Sonnet 4', price:'~$0.02/次',
+    url:'https://api.anthropic.com/v1/messages',
+    storeKey:'qa_key_claude',
+    hint:'Key 获取：<a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>'
+  },
+  'deepseek-v4-pro': {
+    provider:'deepseek', label:'DeepSeek V4 Pro', price:'~$0.05/次',
+    url:'https://api.deepseek.com/v1/chat/completions',
+    storeKey:'qa_key_deepseek',
+    hint:'Key 获取：<a href="https://platform.deepseek.com/api-keys" target="_blank">platform.deepseek.com</a>'
+  },
+  'deepseek-v4-flash': {
+    provider:'deepseek', label:'DeepSeek V4 Flash', price:'~$0.005/次',
+    url:'https://api.deepseek.com/v1/chat/completions',
+    storeKey:'qa_key_deepseek',
+    hint:'Key 获取：<a href="https://platform.deepseek.com/api-keys" target="_blank">platform.deepseek.com</a>'
+  },
+  'deepseek-v3-0324': {
+    provider:'deepseek', label:'DeepSeek V3', price:'~$0.002/次',
+    url:'https://api.deepseek.com/v1/chat/completions',
+    storeKey:'qa_key_deepseek',
+    hint:'Key 获取：<a href="https://platform.deepseek.com/api-keys" target="_blank">platform.deepseek.com</a>'
+  }
+};
+
+function getModelId(){
+  return document.getElementById('model-select').value.split('|')[1];
+}
+function getModelCfg(){
+  return MODELS[getModelId()]||MODELS['claude-sonnet-4-20250514'];
+}
+
+function onModelChange(){
+  const cfg=getModelCfg();
+  const saved=localStorage.getItem(cfg.storeKey)||'';
+  document.getElementById('api-key').value=saved;
+  document.getElementById('model-info').innerHTML=
+    `<span class="mtag hi">${cfg.label}</span><span class="mtag">${cfg.price}</span><span class="mtag">${cfg.provider==='claude'?'Anthropic API':'DeepSeek API'}</span><span class="api-hint">${cfg.hint}</span>`;
+}
+
+function saveKey(){
+  const k=document.getElementById('api-key').value.trim();
+  const cfg=getModelCfg();
+  if(k){localStorage.setItem(cfg.storeKey,k);setStatus(`${cfg.label} Key 已保存到本地`);}
+}
+function getKey(){
+  return document.getElementById('api-key').value.trim()||localStorage.getItem(getModelCfg().storeKey)||'';
+}
+
+window.addEventListener('load',()=>{ onModelChange(); jumpNode(1); });
+
+async function callAI(system,user){
+  const key=getKey(); if(!key) throw new Error('请先填写并保存 API Key');
+  const mid=getModelId(); const cfg=getModelCfg();
+  if(cfg.provider==='claude'){
+    const r=await fetch(cfg.url,{method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({model:mid,max_tokens:1500,system,messages:[{role:'user',content:user}]})});
+    const d=await r.json();
+    if(!d.content) throw new Error(d.error?.message||'Anthropic API 请求失败');
+    return d.content.map(b=>b.text||'').join('');
+  } else {
+    const r=await fetch(cfg.url,{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},
+      body:JSON.stringify({model:mid,max_tokens:1500,
+        messages:[{role:'system',content:system},{role:'user',content:user}]})});
+    const d=await r.json();
+    if(!d.choices) throw new Error(d.error?.message||'DeepSeek API 请求失败');
+    return d.choices[0]?.message?.content||'';
+  }
+}
+
+function setStatus(msg,spin){
+  document.getElementById('status').innerHTML=spin
+    ?`<div class="spinner"></div><span>${msg}</span>`:`<span>${msg}</span>`;
+}
+
+function jumpNode(n){
+  for(let i=1;i<=6;i++){
+    document.getElementById('view-'+i).classList.toggle('active',i===n);
+    const nb=document.getElementById('nb-'+i);
+    const done=(i===1&&ST.prdReview)||(i===2&&ST.mindData)||(i===3&&ST.mindFixed)||(i===4&&ST.cases)||(i===5&&ST.casesReview)||(i===6&&ST.casesFinal);
+    const c=nodeColors[i-1];
+    if(i===n||done){
+      nb.style.background=c.bg;nb.style.borderColor=c.bd;nb.style.borderWidth=i===n?'1.5px':'1px';
+      nb.querySelector('.node-num').style.color=c.nt;nb.querySelector('.node-label').style.color=c.nt;
+    } else {
+      nb.style.background='var(--bg2)';nb.style.borderColor='var(--border2)';nb.style.borderWidth='0.5px';
+      nb.querySelector('.node-num').style.color='var(--text2)';nb.querySelector('.node-label').style.color='var(--text)';
+    }
+  }
+}
+
+function renderScores(id,text){
+  const el=document.getElementById(id);el.innerHTML='';
+  [...text.matchAll(/\[([^\]]+)\]/g)].forEach(m=>{
+    const sp=document.createElement('span');sp.className='sc';
+    const [k,v]=m[1].split(':');
+    const isRisk=k.includes('风险')||k.includes('遗漏');
+    if(v==='高')sp.classList.add(isRisk?'fail':'pass');
+    else if(v==='中')sp.classList.add('warn');
+    else sp.classList.add(isRisk?'pass':'fail');
+    sp.textContent=m[1];el.appendChild(sp);
+  });
+}
+
+function useSamplePrd(){
+  document.getElementById('prd-text').value=`功能名称：首页无设备状态下的功能入口展示
+
+背景：用户首次打开极印 Photo APP，尚未连接任何打印机设备时，首页需要根据是否有设备决定展示内容。
+
+功能描述：
+1. 无设备状态：首页顶部展示引导Banner，提示用户连接打印机
+2. 点击「一键打印」入口：跳转至设备引导页
+3. 点击「相册打印」入口：提示需要先连接设备
+4. 国内版/海外版首页Tab结构不同：国内版含「发现」Tab，海外版无
+5. 已登录与未登录状态下引导Banner文案不同
+
+待确认：无设备时底部Tab是否需要隐藏部分功能入口`;
+}
+
+function clearAll(){
+  if(!confirm('确认重置所有数据？'))return;
+  Object.keys(ST).forEach(k=>ST[k]=typeof ST[k]==='string'?'':null);
+  ['prd-text','prd-review','prd-supplement','mind-review','mind-raw','mind-fix-notes',
+   'cases-output','cases-review','cases-issues','cases-before','cases-after','cases-fix-notes']
+    .forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['prd-scores','mind-scores','cases-scores'].forEach(id=>document.getElementById(id).innerHTML='');
+  document.getElementById('mind-svg-wrap').innerHTML='<div style="font-size:12px;color:var(--text3);padding:20px;text-align:center">思维导图将在此渲染</div>';
+  document.getElementById('mind-before-wrap').innerHTML='';
+  document.getElementById('mind-after-wrap').innerHTML='<div style="font-size:12px;color:var(--text3);padding:20px;text-align:center">点击执行后渲染</div>';
+  ['btn-to-node2','btn-to-node3','btn-to-node4','btn-to-node5','btn-to-node6'].forEach(id=>document.getElementById(id).disabled=true);
+  jumpNode(1);setStatus('已重置');
+}
+
+function handleFile(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{document.getElementById('prd-text').value=e.target.result;};
+  r.readAsText(f,'utf-8');
+  document.getElementById('upload-area').textContent='已上传：'+f.name;
+}
+
+async function runNode1(){
+  const prd=document.getElementById('prd-text').value.trim();
+  if(!prd){setStatus('请先输入或上传PRD内容');return;}
+  if(busy)return;busy=true;
+  setStatus('节点1：'+getModelCfg().label+' 正在评审PRD...',true);
+  try{
+    const res=await callAI(`你是资深产品需求评审专家。评审输入的PRD，输出评审报告，包含：
+1. 完整性分析（缺失场景/边界条件）
+2. 歧义点（表述不清、需澄清处）
+3. 逻辑问题（矛盾、流程缺失）
+4. 测试风险点（高风险功能）
+最后单独一行输出评分：[完整性:高/中/低] [清晰度:高/中/低] [风险:高/中/低]
+中文，简明扼要`,'PRD内容：\n\n'+prd);
+    ST.prdReview=res;ST.prdText=prd;
+    document.getElementById('prd-review').value=res.replace(/\[[^\]]+\][\s\S]*$/m,'').trim();
+    renderScores('prd-scores',res);
+    document.getElementById('btn-to-node2').disabled=false;
+    setStatus('PRD评审完成，请人工补齐后进入节点2');
+  }catch(e){setStatus('出错：'+e.message);}
+  busy=false;
+}
+
+function goToNode2(){ST.prdSupplement=document.getElementById('prd-supplement').value;jumpNode(2);runMindGen();}
+
+async function runMindGen(){
+  if(busy)return;busy=true;
+  setStatus('节点2：'+getModelCfg().label+' 生成思维导图...',true);
+  try{
+    const combined=ST.prdText+(ST.prdSupplement?'\n\n【补充内容】\n'+ST.prdSupplement:'');
+    const res=await callAI(`你是QA测试架构师。根据PRD生成测试思维导图JSON。
+只输出JSON，不要任何说明文字或markdown代码块。
+格式：{"root":"功能名称","children":[{"name":"一级分类","children":[{"name":"测试点","children":[]}]}]}
+一级节点为测试维度（功能测试/边界测试/异常测试/兼容性测试/性能测试），二级节点为具体测试点。`,combined);
+    let json;
+    try{json=JSON.parse(res.replace(/```json|```/g,'').trim());}
+    catch(e){json={root:'功能测试',children:[{name:'功能测试',children:[{name:'基础流程',children:[]}]},{name:'边界测试',children:[{name:'边界值',children:[]}]},{name:'异常测试',children:[{name:'异常场景',children:[]}]}]};}
+    ST.mindData=json;
+    document.getElementById('mind-raw').value=JSON.stringify(json,null,2);
+    renderMindMap('mind-svg-wrap',json);
+    await runMindReview(json);
+    document.getElementById('btn-to-node3').disabled=false;
+    setStatus('节点2完成，可进入节点3修正导图');
+  }catch(e){setStatus('出错：'+e.message);}
+  busy=false;
+}
+
+async function runMindReview(json){
+  const res=await callAI(`你是测试覆盖度评审专家。评审测试思维导图，评估：
+1. 覆盖完整性 2. 结构合理性 3. 遗漏的具体测试点
+最后一行输出：[覆盖度:高/中/低] [结构:高/中/低] [遗漏风险:高/中/低]
+中文简洁`,'思维导图：\n'+JSON.stringify(json,null,2));
+  ST.mindReview=res.replace(/\[[^\]]+\][\s\S]*$/m,'').trim();
+  document.getElementById('mind-review').value=ST.mindReview;
+  renderScores('mind-scores',res);
+}
+
+async function runNode3(){
+  if(!ST.mindData){setStatus('请先完成节点2');return;}
+  if(busy)return;busy=true;
+  setStatus('节点3：'+getModelCfg().label+' 自动修正思维导图...',true);
+  renderMindMap('mind-before-wrap',ST.mindData);
+  try{
+    const res=await callAI(`你是QA测试架构师。根据评审意见修正并补充测试思维导图。
+只输出修正后的完整JSON，格式与输入一致，不要说明文字。`,
+      `原始导图：\n${JSON.stringify(ST.mindData,null,2)}\n\n评审意见：\n${ST.mindReview}`);
+    let fixed;
+    try{fixed=JSON.parse(res.replace(/```json|```/g,'').trim());}catch(e){fixed=ST.mindData;}
+    ST.mindFixed=fixed;
+    renderMindMap('mind-after-wrap',fixed);
+    const notes=await callAI('简要说明对思维导图做了哪些修正（3-5条，中文，每条一行）',
+      `原始：${JSON.stringify(ST.mindData)}\n修正后：${JSON.stringify(fixed)}`);
+    document.getElementById('mind-fix-notes').value=notes;
+    document.getElementById('btn-to-node4').disabled=false;
+    setStatus('节点3完成，可进入节点4生成用例');
+  }catch(e){setStatus('出错：'+e.message);}
+  busy=false;
+}
+
+async function runNode4(){
+  if(!ST.mindFixed&&!ST.mindData){setStatus('请先完成节点3');return;}
+  if(busy)return;busy=true;
+  setStatus('节点4：'+getModelCfg().label+' 生成测试用例...',true);
+  try{
+    const mind=ST.mindFixed||ST.mindData;
+    const res=await callAI(`你是Liene/极印 Photo APP的QA测试工程师（维护人：王姿翰）。根据测试思维导图生成完整结构化测试用例。
+格式（每条）：
+编号：TC-XXX
+标题：[一句话描述]
+步骤：
+1. 步骤1
+2. 步骤2
+预期结果：
+1. 对应步骤1的预期
+2. 对应步骤2的预期
+---
+要求：步骤与预期一一对应；至少10条用例；覆盖正常/边界/异常流程；中文。`,
+      '思维导图：\n'+JSON.stringify(mind,null,2));
+    ST.cases=res;
+    document.getElementById('cases-output').value=res;
+    document.getElementById('btn-to-node5').disabled=false;
+    setStatus('节点4完成，可进入节点5评审');
+  }catch(e){setStatus('出错：'+e.message);}
+  busy=false;
+}
+
+async function runNode5(){
+  if(!ST.cases){setStatus('请先完成节点4');return;}
+  if(busy)return;busy=true;
+  setStatus('节点5：'+getModelCfg().label+' 评审测试用例...',true);
+  try{
+    const [review,issues]=await Promise.all([
+      callAI(`资深QA评审专家。评审维度：1.覆盖完整性 2.步骤清晰度 3.预期结果准确性 4.边界场景 5.可执行性
+总体评价+维度说明，最后一行：[覆盖度:高/中/低] [清晰度:高/中/低] [可执行性:高/中/低]
+中文简洁`,'测试用例：\n\n'+ST.cases),
+      callAI(`找出测试用例具体问题，格式：
+问题N：[用例编号] - [问题描述] - [修改建议]
+无问题则输出"用例质量良好"。中文。`,'测试用例：\n\n'+ST.cases)
+    ]);
+    ST.casesReview=review;
+    document.getElementById('cases-review').value=review.replace(/\[[^\]]+\][\s\S]*$/m,'').trim();
+    document.getElementById('cases-issues').value=issues;
+    renderScores('cases-scores',review);
+    document.getElementById('btn-to-node6').disabled=false;
+    setStatus('节点5完成，可进入节点6修正');
+  }catch(e){setStatus('出错：'+e.message);}
+  busy=false;
+}
+
+async function runNode6(){
+  if(!ST.cases){setStatus('请先完成节点5');return;}
+  if(busy)return;busy=true;
+  setStatus('节点6：'+getModelCfg().label+' 自动修正用例...',true);
+  document.getElementById('cases-before').value=ST.cases;
+  try{
+    const issues=document.getElementById('cases-issues').value;
+    const [fixed,notes]=await Promise.all([
+      callAI(`Liene/极印 Photo APP QA工程师。根据评审意见修正测试用例。
+保持原格式，修正问题、补充遗漏场景，输出完整修正后用例，中文。`,
+        `原始用例：\n${ST.cases}\n\n评审问题：\n${issues}`),
+      callAI('说明对测试用例做了哪些修正（3-5条，格式：修正N：xxx，中文）',
+        `问题清单：${issues}`)
+    ]);
+    ST.casesFinal=fixed;
+    document.getElementById('cases-after').value=fixed;
+    document.getElementById('cases-fix-notes').value=notes;
+    jumpNode(6);
+    setStatus('全流程完成！最终测试用例已就绪 ✓');
+  }catch(e){setStatus('出错：'+e.message);}
+  busy=false;
+}
+
+function copyText(id){
+  const t=document.getElementById(id).value;if(!t)return;
+  navigator.clipboard.writeText(t).then(()=>setStatus('已复制到剪贴板'));
+}
+
+function exportTxt(){
+  const t=document.getElementById('cases-after').value||document.getElementById('cases-output').value;
+  if(!t){setStatus('暂无用例可导出');return;}
+  const blob=new Blob([t],{type:'text/plain;charset=utf-8'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='测试用例_'+(new Date().toLocaleDateString('zh-CN').replace(/\//g,'-'))+'.txt';
+  a.click();
+}
+
+function renderMindMap(containerId,data){
+  const container=document.getElementById(containerId);
+  if(!data||!data.root)return;
+  const W=540,nodeH=20,gap=3;
+  const l1C=['#185FA5','#0F6E56','#534AB7','#854F0B','#3B6D11','#993C1D'];
+  const l1Cf=['#E6F1FB','#E1F5EE','#EEEDFE','#FAEEDA','#EAF3DE','#FAECE7'];
+  function countLeaves(n){return !n.children||!n.children.length?1:n.children.reduce((s,c)=>s+countLeaves(c),0);}
+  let items=[];
+  function layout(node,depth,midY){
+    const leaves=countLeaves(node);
+    const totalH=leaves*(nodeH+gap)-gap;
+    const x=depth===0?W/2-60:depth===1?60:depth===2?200:330;
+    const w=depth===0?120:depth===1?110:depth===2?110:120;
+    items.push({node,depth,x,y:midY-nodeH/2,w,totalH});
+    if(node.children&&node.children.length){
+      let cy=midY-totalH/2;
+      node.children.forEach(c=>{
+        const cl=countLeaves(c),ch=cl*(nodeH+gap)-gap;
+        layout(c,depth+1,cy+ch/2);cy+=ch+gap;
+      });
+    }
+  }
+  const total=countLeaves(data),totalH=total*(nodeH+gap)-gap;
+  layout(data,0,totalH/2);
+  // 给每个节点标记 l1 颜色索引
+  const l1nodes=data.children||[];
+  function tagL1(node,idx){
+    items.filter(it=>it.node===node).forEach(it=>it.l1idx=idx);
+    if(node.children)node.children.forEach(c=>tagL1(c,idx));
+  }
+  items.filter(it=>it.depth===0).forEach(it=>it.l1idx=0);
+  l1nodes.forEach((c,i)=>tagL1(c,i));
+  let minY=Infinity,maxY=-Infinity;
+  items.forEach(it=>{minY=Math.min(minY,it.y);maxY=Math.max(maxY,it.y+nodeH);});
+  const offY=16-minY,svgH=maxY-minY+32;
+  let paths='',nodes='';
+  items.forEach(it=>{
+    const rx=it.x,ry=it.y+offY;
+    const ci=(it.l1idx||0)%l1C.length;
+    const col=it.depth===0?'#378ADD':l1C[ci];
+    const fill=it.depth===0?'#378ADD':it.depth===1?l1C[ci]:l1Cf[ci];
+    const tc=it.depth<=1?'#fff':'#1a1a18',fw=it.depth<=1?'500':'400';
+    const lbl=it.node.name||'',short=lbl.length>13?lbl.substring(0,12)+'…':lbl;
+    nodes+=`<g><rect x="${rx}" y="${ry}" width="${it.w}" height="${nodeH}" rx="4" fill="${fill}" stroke="${col}" stroke-width="0.5"/>
+<text x="${rx+it.w/2}" y="${ry+nodeH/2}" text-anchor="middle" dominant-baseline="central" font-size="10" fill="${tc}" font-weight="${fw}" font-family="-apple-system,sans-serif">${short}</text></g>`;
+    if(it.depth>0){
+      const par=items.find(p=>p.node.children&&p.node.children.includes(it.node));
+      if(par){
+        const px=par.x+par.w,py=par.y+offY+nodeH/2,cx=rx,cy=ry+nodeH/2,mx=(px+cx)/2;
+        paths+=`<path d="M${px} ${py} C${mx} ${py} ${mx} ${cy} ${cx} ${cy}" fill="none" stroke="${col}" stroke-width="0.6" opacity="0.5"/>`;
+      }
+    }
+  });
+  container.innerHTML=`<svg width="100%" viewBox="0 0 ${W} ${svgH}" xmlns="http://www.w3.org/2000/svg">${paths}${nodes}</svg>`;
+}
+</script>
+</body>
+</html>
